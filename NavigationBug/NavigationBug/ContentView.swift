@@ -1,107 +1,91 @@
-//
-//  ContentView.swift
-//  NavigationBug
-//
-//  Created by Martynas Narijauskas on 2020-11-24.
-//
 
 import SwiftUI
 
-class AppState: ObservableObject {
-    @Published
-    var shouldHideUserInfo = false
-}
-
-
-struct ContentView: View {
+class TabsViewModel: ObservableObject {
+    var shopView: some View {
+        ViewsBuilder.makeShopView()
+    }
     
-    @EnvironmentObject
-    var appState: AppState
-    
-    @State
-    var selection: Int? = nil
-    
-    var body: some View {
-        NavigationView {
-            VStack {
-                if !appState.shouldHideUserInfo {
-                    Text("USER INFO")
-                }
-                
-                NavigationLink(
-                    destination: ViewA(),
-                    tag: 1,
-                    selection: $selection,
-                    label: { EmptyView()})
-                
-                Button("MOVE TO VIEW A") {
-                    selection = 1
-                }
-            }
+    struct ViewsBuilder {
+        static func makeShopView() -> some View {
+            ShopView(viewModel: .init())
         }
     }
 }
 
-
-class ViewAModel: ObservableObject {
-    @Published
-    var selection: Int? = nil
-    
-    func navigate() {
-        selection = 2 //<- this doesnt
-    }
-}
-
-struct ViewA: View {
+//To reproduce go to second tab, view is loaded, go to first tab and then again go to second one
+struct TabsView: View {
     
     @ObservedObject
-    var viewModel: ViewAModel
+    var viewModel: TabsViewModel
     
-    init() {
-        viewModel = ViewAModel()
-    }
-
     @State
-    var selection: Int? = nil //<- this works
+    private var selection = 1
     
     var body: some View {
-        VStack
-        {
-            Text("VIEW A")
-            
-            NavigationLink(
-                destination: ViewB(),
-                tag: 2,
-                selection: $viewModel.selection,
-                label: { EmptyView()})
-            
-            Button("MOVE TO VIEW B") {
-                //selection = 2 <-- this works
-                viewModel.navigate() //<- this doesnt
+        TabView(
+            selection: $selection) {
+                Text("Tab Content 1")
+                    .tabItem {
+                        if selection == 1 {
+                            Image(systemName: "star.fill")
+                        } else {
+                            Image(systemName: "star")
+                        }
+                        //it works if I set Image(systemName: "star.fill") instead of if statement
+                    }
+                    .tag(1)
+                viewModel
+                    .shopView
+                    .tabItem {
+                        if selection == 2 {
+                            Image(systemName: "star.fill")
+                        } else {
+                            Image(systemName: "star")
+                        }
+                        //it works if I set Image(systemName: "star.fill") instead of if statement
+                    }
+                    .tag(2)
             }
-           
-        }
     }
 }
 
 
-
-struct ViewB: View {
+struct ShopView: View {
     
-    @EnvironmentObject
-    var appState: AppState
-
-    @State
-    var selection: Int? = nil
+    @ObservedObject
+    var viewModel: ShopViewModel
     
     var body: some View {
-        VStack
-        {
-            Text("VIEW B")
-           
+        VStack {
+            ForEach(viewModel.mockedUser) { user in
+                Text(user.name)
+            }
         }
-        .onAppear {
-            appState.shouldHideUserInfo = true
+        .onAppear() {
+            viewModel.mockApiCall()
         }
+        
+    }
+}
+
+class ShopViewModel: ObservableObject {
+    
+    @Published
+    var mockedUser: [TestUser] = []
+    
+    func mockApiCall() {
+        print("API CALLED")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.mockedUser = [
+                TestUser(id: 1, name: "Test"),
+                TestUser(id: 2, name: "User2")
+            ]
+        }
+    }
+    
+    struct TestUser: Identifiable {
+        let id: Int
+        let name: String
     }
 }
